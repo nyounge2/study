@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.IO;
 
-namespace Day015_1_칼라영상처리__Beta_2_
+namespace Day015_1_칼라영상처리__Beta_1_
 {
     public partial class Form1 : Form
     {
@@ -628,7 +628,7 @@ namespace Day015_1_칼라영상처리__Beta_2_
                                { 1/9.0, 1/9.0, 1/9.0 },
                                { 1/9.0, 1/9.0, 1/9.0 } };
 
-            double[,,] tmpInput = new double[RGB+2, inH + 2, inW + 2];
+            double[,,] tmpInput = new double[RGB, inH + 2, inW + 2];
             double[,,] tmpOutput = new double[RGB, outH, outW];
 
             for (int rgb = 0; rgb < RGB; rgb++)
