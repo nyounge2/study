@@ -577,7 +577,7 @@ namespace Day015_1_칼라영상처리__Beta_2_
             double[,] mask = { { -1.0, 0.0, 0.0 },
                                { 0.0, 0.0, 0.0 },
                                { 0.0, 0.0, 1.0 } };
-            double[,,] tmpInput = new double[RGB+2,inH + 2, inW + 2];
+            double[,,] tmpInput = new double[RGB,inH + 2, inW + 2];
             double[,,] tmpOutput = new double[RGB, outH, outW];
             for (int rgb = 0; rgb < RGB; rgb++)
                 for (int i = 0; i < inH + 2; i++)
@@ -638,7 +638,7 @@ namespace Day015_1_칼라영상처리__Beta_2_
             for (int rgb = 0; rgb < RGB; rgb++)
                 for (int i = 0; i < inH; i++)
                    for (int k = 0; k < inW; k++)
-                    tmpInput[rgb+1,i + 1, k + 1] = inImage[rgb,i, k];
+                    tmpInput[rgb,i + 1, k + 1] = inImage[rgb,i, k];
             double S = 0.0;
             for (int rgb = 0; rgb < RGB; rgb++)
                 for (int i = 0; i < inH; i++)
@@ -676,7 +676,7 @@ namespace Day015_1_칼라영상처리__Beta_2_
                                { -1.0, 5.0, -1.0 },
                                { 0.0, -1.0, 0.0 } };
 
-            double[,,] tmpInput = new double[RGB+2, inH + 2, inW + 2];
+            double[,,] tmpInput = new double[RGB, inH + 2, inW + 2];
             double[,,] tmpOutput = new double[RGB, outH, outW];
             for (int rgb = 0; rgb < RGB; rgb++)
                 for (int i = 0; i < inH + 2; i++)
@@ -685,7 +685,7 @@ namespace Day015_1_칼라영상처리__Beta_2_
             for (int rgb = 0; rgb < RGB; rgb++)
                 for (int i = 0; i < inH; i++)
                     for (int k = 0; k < inW; k++)
-                    tmpInput[rgb+1, i + 1, k + 1] = inImage[rgb, i, k];
+                    tmpInput[rgb, i + 1, k + 1] = inImage[rgb, i, k];
             double S = 0.0;
             for (int rgb = 0; rgb < RGB; rgb++)
                 for (int i = 0; i < inH; i++)
@@ -768,7 +768,7 @@ namespace Day015_1_칼라영상처리__Beta_2_
             double[,] mask = { { 1.0, 1.0, 1.0 },
                                { 1.0, -8.0, 1.0 },
                                { 1.0, 1.0, 1.0 } };
-            double[,,] tmpInput = new double[RGB + 2, inH + 2, inW + 2];
+            double[,,] tmpInput = new double[RGB+2 , inH + 2, inW + 2];
             double[,,] tmpOutput = new double[RGB, outH, outW];
 
             for (int rgb = 0; rgb < RGB; rgb++)
