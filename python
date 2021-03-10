@@ -1,0 +1,507 @@
+from tkinter import *  # GUI 필수
+from tkinter import messagebox
+from tkinter.filedialog import *
+from tkinter.simpledialog import *
+import cv2
+from shapely.geometry import Point, Polygon # 먼저 Shapely 패키지를 설치
+import math
+
+## 함수 선언부
+def malloc(row, col, init=0) :
+    retAry = [[[init for _ in range(col)] for _ in range(row)] for _ in range(RGB)]
+    return retAry
+
+def openImage() :
+    global window, canvas, paper, inImage, outImage, inH, inW, outH, outW
+    global fileName, cvInImage, cvOutImage, RGB, RR, GG ,BB
+
+    fileName = askopenfilename(parent=window,
+            filetypes=(('Color File', '*.png;*.jpg;*,bmp;*.tif'),('All File','*.*'))  )
+    # File --> CV 객체
+    inCvImage = cv2.imread(fileName)
+    # 입력 영상 크기 알아내기 (중요!)
+    inH, inW = inCvImage.shape[:2]
+    # 메모리 확보
+    inImage = malloc(inH, inW)
+    # OpenCV --> 메모리
+    for i in range(inH) :
+        for k in range(inW) :
+            inImage[BB][i][k] = inCvImage.item(i, k, RR)
+            inImage[GG][i][k] = inCvImage.item(i, k, GG)
+            inImage[RR][i][k] = inCvImage.item(i, k, BB)
+
+    #print(inImage[RR][100][100], inImage[GG][100][100], inImage[BB][100][100])
+    equal_image()
+
+import numpy as np
+def saveImage() :
+    global window, canvas, paper, inImage, outImage, inH, inW, outH, outW
+    global fileName, cvInImage, cvOutImage, RGB, RR, GG, BB
+    if fileName == None :
+        return
+    saveCvImage = np.zeros((outH, outW, 3), np.uint8) # 데이터형식 지원
+    for i in range(outH) :
+        for k in range(outW) :
+            tup = tuple(  (  [outImage[BB][i][k], outImage[GG][i][k], outImage[RR][i][k] ] ) )
+            # --> ( ( [100, 77, 55] ) )
+            saveCvImage[i,k] = tup
+    saveFp = asksaveasfile(parent=window, mode='wb', defaultextension='.png',
+                filetypes=(("Image Tyep", "*.png;*.jpg;*.bmp;*.tif"),("All File", "*.*")))
+    if saveFp == '' or saveFp == None :
+        return
+    cv2.imwrite(saveFp.name, saveCvImage)
+    print('Save ~~')
+
+def displayImage() :
+    global window, canvas, paper, inImage, outImage, inH, inW, outH, outW
+    global fileName, cvInImage, cvOutImage, RGB, RR, GG, BB
+    ## 기존에 그림을 붙인적이 있으면, 게시판(canvas) 뜯어내기
+    if canvas != None :
+        canvas.destroy()
+    window.geometry(str(outW) + "x" + str(outH))
+    canvas = Canvas(window, height=outH, width=outW)
+    paper = PhotoImage(height=outH, width=outW)
+    canvas.create_image( (outW/2, outH/2), image=paper, state='normal')
+
+    rgbString ="" # 전체 펜을 저장함
+    for i in range(outH) :
+        tmpString = "" # 각 1줄의 펜
+        for k in range(outW) :
+            rr = outImage[RR][i][k]
+            gg = outImage[GG][i][k]
+            bb = outImage[BB][i][k]
+            tmpString += "#%02x%02x%02x " % (rr, gg, bb)  # 제일 뒤 공백 1칸
+        rgbString += '{' + tmpString + '} ' # 제일 뒤 공백 1칸
+    paper.put(rgbString)
+    canvas.pack()
+    status.configure(text= str(outW) + 'x' + str(outH) + '  ' + fileName)
+
+
+###### 영상처리 함수 모음 #########
+def equal_image() :
+    global window, canvas, paper, inImage, outImage, inH, inW, outH, outW
+    global fileName, cvInImage, cvOutImage, RGB, RR, GG ,BB
+    if (inImage == None) :
+        return
+    ## 중요! 출력이미지의 높이, 폭을 결정  --> 알고리즘에 영향
+    outH = inH; outW = inW;
+    outImage = malloc(outH, outW)
+    ## *** 진짜 영상처리 알고리즘을 구현 ***
+    for rgb in range(RGB) :
+        for i in range(inH) :
+            for k in range(inW) :
+                outImage[rgb][i][k] = inImage[rgb][i][k]
+    ##/////////////////////////////////////////////
+    displayImage()
+
+
+def reverse_image() :
+    global window, canvas, paper, inImage, outImage, inH, inW, outH, outW
+    global fileName, cvInImage, cvOutImage, RGB, RR, GG ,BB
+    global boxLine
+    global sx, sy, ex, ey
+
+    sx, sy, ex, ey = [-1] * 4
+    boxLine = None  # 처음인지 체크하기.
+
+    if (inImage == None) :
+        return
+    def reverse_image_click(event):
+        global sx, sy, ex, ey
+        sx = event.x
+        sy = event.y
+    def reverse_image_release(event):
+        global sx, sy, ex, ey
+        ex = event.x
+        ey = event.y
+        if sx > ex :
+            sx, ex = ex, sx
+        if sy > ey :
+            sy, ey = ey, sy
+        __reverse_image()
+        canvas.unbind("<Button-1>")
+        canvas.unbind("<B1-Motion>")
+        canvas.unbind("<Button-3>")
+        canvas.unbind("<ButtonRelease-1>")
+
+    def reverse_image_Rclick(event):
+        global sx, sy, ex, ey
+        global inH, inW
+        sx = 0
+        sy = 0
+        ex = inW -1
+        ey = inH -1
+        __reverse_image()
+        canvas.unbind("<Button-1>")
+        canvas.unbind("<B1-Motion>")
+        canvas.unbind("<Button-3>")
+        canvas.unbind("<ButtonRelease-1>")
+
+    def mouseMove(event):
+        global sx, sy, ex, ey, boxLine
+        if sx < 0 :
+            return
+        ex = event.x
+        ey = event.y
+        if not boxLine : # 기존 박스선 지우기
+            pass
+        else :
+            canvas.delete(boxLine)
+
+        boxLine = canvas.create_rectangle(sx,sy,ex,ey, fill = None)
+
+    def __reverse_image():
+        global window, canvas, paper, inImage, outImage, inH, inW, outH, outW
+        global fileName, cvInImage, cvOutImage, RGB, RR, GG, BB
+        global sx, sy, ex, ey
+        if (inImage == None):
+            return
+        ## 중요! 출력이미지의 높이, 폭을 결정  --> 알고리즘에 영향
+        outH = inH;
+        outW = inW;
+        outImage = malloc(outH, outW)
+        ## *** 진짜 영상처리 알고리즘을 구현 ***
+        for rgb in range(RGB):
+            for i in range(inH):
+                for k in range(inW):
+                    if ( sx <= k <= ex ) and ( sy <= i <= ey ) :
+                        outImage[rgb][i][k] = 255-inImage[rgb][i][k]
+                    else :
+                        outImage[rgb][i][k] = inImage[rgb][i][k]
+        ##/////////////////////////////////////////////
+        displayImage()
+
+    canvas.bind("<Button-1>", reverse_image_click)
+    canvas.bind("<B1-Motion>", mouseMove)
+    canvas.bind("<Button-3>", reverse_image_Rclick)
+    canvas.bind("<ButtonRelease-1>", reverse_image_release)
+
+def  nega_image() :
+    global window, canvas, paper, inImage, outImage, inH, inW, outH, outW
+    global fileName, cvInImage, cvOutImage, RGB, RR, GG, BB
+    global sx, sy, ex, ey
+    global xyList, rubbers, mousePress, saveX, saveY
+
+    xyList = []  # 클릭하거나 Move한 점의 좌표 리스트 (= 폴리곤 좌표)
+    rubbers = []  # 임시로 그려진 선들의 집합
+    mousePress = False  # 클릭한 후에, 마우스를 Move 했는지 체크하기 위함.
+    sx, sy, ex, ey = [0] * 4  # 임시 선을 그리기 위한 좌표
+    saveX, saveY = 0, 0  # 첫 클릭한 좌표. 마지막 점과 다시 연결하기 위함
+
+    def negaImage_click(event):
+        global window, canvas, paper, inImage, outImage, inH, inW, outH, outW
+        global fileName, cvInImage, cvOutImage, RGB, RR, GG, BB
+        global sx, sy, ex, ey
+        global xyList, rubbers, mousePress, saveX, saveY
+
+        mousePress = True  # 클릭한 상태로 전환
+        xyList.append((event.y, event.x))  # 첫 클릭점을 폴리곤 좌표 목록에 추가
+        saveX = sx = event.x  # 첫점 및 임시선을 그리기 위한 시작점
+        saveY = sy = event.y
+
+    def negaImage_move(event):
+        global window, canvas, paper, inImage, outImage, inH, inW, outH, outW
+        global fileName, cvInImage, cvOutImage, RGB, RR, GG, BB
+        global sx, sy, ex, ey
+        global xyList, rubbers, mousePress, saveX, saveY
+
+        if mousePress:  # 마우스를 클릭한 상태에서 움직인 것만 인정
+            xyList.append((event.y, event.x))  # 마우스를 움직인 위치를 '계속' 폴리곤 좌표 목록에 추가
+            ex = event.x  # 임시선을 그리기 위한 끝점
+            ey = event.y
+            rubber = canvas.create_line(sx, sy, ex, ey, fill="red")  # 임시선 그림
+            rubbers.append(rubber)  # 임시선을 임시선 목록에 넣음
+            sx = ex  # 다음 임시 선을 그리기 위해서 마지막 점을 다시 시작점으로...
+            sy = ey
+
+    def negaImage_drop(event):
+        global window, canvas, paper, inImage, outImage, inH, inW, outH, outW
+        global fileName, cvInImage, cvOutImage, RGB, RR, GG, BB
+        global sx, sy, ex, ey
+        global xyList, rubbers, mousePress, saveX, saveY
+
+        mousePress = False  # 마우스를 드롭하면 체크
+        ex = event.x
+        ey = event.y
+        rubber = canvas.create_line(ex, ey, saveX, saveY, fill="red")  # 마지막 점과 첫 점을 연결 (폴리곤 그림)
+        rubbers.append(rubber)
+        xyList.append((event.y, event.x))
+        __negaImage()
+        xyList = []  # 초기화
+        rubbers = []  # 초기화
+        canvas.unbind("<Button-1>")
+        canvas.unbind("<ButtonRelease-1>")
+        canvas.unbind("<B1-Motion>")
+        canvas.unbind("<Button-3>")
+
+    def negaImage_rClick(event):
+        global window, canvas, paper, inImage, outImage, inH, inW, outH, outW
+        global fileName, cvInImage, cvOutImage, RGB, RR, GG, BB
+        global sx, sy, ex, ey
+        global xyList, rubbers, mousePress, saveX, saveY
+
+        if len(xyList == 0):
+            xyList = None
+        xyList.append((event.x, event.y))
+        __negaImage()
+        canvas.unbind("<Button-1>")
+        canvas.unbind("<ButtonRelease-1>")
+        canvas.unbind("<B1-Motion>")
+        canvas.unbind("<Button-3>")
+
+    def __negaImage():
+        global window, canvas, paper, inImage, outImage, inH, inW, outH, outW
+        global fileName, cvInImage, cvOutImage, RGB, RR, GG, BB
+        global sx, sy, ex, ey
+        global xyList, rubbers, mousePress, saveX, saveY
+
+        if fileName == None:
+            return
+
+        # 중요! 출력 영상의 크기 결정 (알고리즘에 따라서)
+        outH = inH;
+        outW = inW
+        # 출력 영상 메모리 할당
+        outImage = malloc(outH, outW)
+
+        #### 진짜 영상처리 알고리즘 ####
+        if xyList == None or len(xyList) < 3:  # 그냥 클릭만 했거나, 폴리곤이 아니면 전체를 처리
+            for rgb in range(RGB):
+                for i in range(inH):
+                    for k in range(inW):
+                        outImage[rgb][i][k] = 255 - inImage[rgb][i][k]
+
+        else:  # 폴리곤이 3점 이상이면...
+            poly = Polygon(xyList)  # 좌표 리스트를 폴리곤 객체로 만듬
+            for rgb in range(RGB):
+                for i in range(inH):
+                    for k in range(inW):
+                        # Point in Polygon Algorithm
+                        pnt = Point(i, k)  # 현재 점 (전체 좌표를 하나씩 처리)
+                        if (pnt.within(poly)):  # 현재 점이 폴리곤 안에 있으면 처리
+                            outImage[rgb][i][k] = 255 - inImage[rgb][i][k]
+                        else:
+                            outImage[rgb][i][k] = inImage[rgb][i][k]
+        displayImage()
+
+    canvas.bind("<Button-1>",negaImage_click)
+    canvas.bind("<ButtonRelease-1>", negaImage_drop)
+    canvas.bind("<Button-3>", negaImage_rClick)
+    canvas.bind("<B1-Motion>", negaImage_move)
+
+def grayscale_image() :
+    global window, canvas, paper, inImage, outImage, inH, inW, outH, outW
+    global fileName, cvInImage, cvOutImage, RGB, RR, GG ,BB
+    if (inImage == None) :
+        return
+    ## 중요! 출력이미지의 높이, 폭을 결정  --> 알고리즘에 영향
+    outH = inH; outW = inW;
+    outImage = malloc(outH, outW)
+    ## *** 진짜 영상처리 알고리즘을 구현 ***
+    for i in range(inH) :
+       for k in range(inW) :
+           hap = inImage[RR][i][k] + inImage[GG][i][k] + inImage[BB][i][k]
+           outImage[RR][i][k] =  outImage[GG][i][k] =outImage[BB][i][k] = hap//3
+    ##/////////////////////////////////////////////
+    displayImage()
+
+def add_image() :
+    global window, canvas, paper, inImage, outImage, inH, inW, outH, outW
+    global fileName, cvInImage, cvOutImage, RGB, RR, GG ,BB
+    if (inImage == None) :
+        return
+    ## 중요! 출력이미지의 높이, 폭을 결정  --> 알고리즘에 영향
+    outH = inH; outW = inW
+    outImage = malloc(outH, outW)
+    ## *** 진짜 영상처리 알고리즘을 구현 ***
+    value = askinteger("밝게/어둡게", "값 입력", minvalue=-255, maxvalue=255)
+    for rgb in range(RGB) :
+        for i in range(inH) :
+            for k in range(inW) :
+                if (inImage[rgb][i][k] + value > 255) :
+                    outImage[rgb][i][k] = 255
+                elif (inImage[rgb][i][k] + value < 0 ) :
+                    outImage[rgb][i][k] = 0
+                else :
+                    outImage[rgb][i][k] = inImage[rgb][i][k] + value
+    ##/////////////////////////////////////////////
+    displayImage()
+
+def gm_image() :
+    global window, canvas, paper, inImage, outImage, inH, inW, outH, outW
+    global fileName, cvInImage, cvOutImage, RGB, RR, GG, BB
+    if (inImage == None):
+        return
+    outH = inH;    outW = inW
+    outImage = malloc(outH, outW)
+    value = askinteger("감마값", "값 입력", minvalue=-255, maxvalue=255)
+    for rgb in range(RGB):
+        for i in range(inH):
+            for k in range(inW):
+                outImage[rgb][i][k] = int(255.0 * ((inImage[rgb][i][k] / 255.0) ** value));
+                if (inImage[rgb][i][k] > 255):
+                    outImage[rgb][i][k] = 255
+    displayImage()
+
+def sol_image() :
+    global window, canvas, paper, inImage, outImage, inH, inW, outH, outW
+    global fileName, cvInImage, cvOutImage, RGB, RR, GG, BB
+    if (inImage == None):
+        return
+    outH = inH;    outW = inW
+    outImage = malloc(outH, outW)
+    for rgb in range(RGB):
+        for i in range(inH):
+            for k in range(inW):
+                outImage[rgb][i][k] = int(255 - (255.0 * ((inImage[rgb][i][k] / 128) - 1) ** 2))
+    displayImage()
+
+def pb_image() :
+    global window, canvas, paper, inImage, outImage, inH, inW, outH, outW
+    global fileName, cvInImage, cvOutImage, RGB, RR, GG, BB
+    if (inImage == None):
+        return
+    outH = inH;    outW = inW
+    outImage = malloc(outH, outW)
+    for rgb in range(RGB):
+        for i in range(inH):
+            for k in range(inW):
+                outImage[rgb][i][k] = int(255.0 * ((inImage[rgb][i][k] / 128) - 1) ** 2)
+    displayImage()
+
+def lrm_image() :
+    global window, canvas, paper, inImage, outImage, inH, inW, outH, outW
+    global fileName, cvInImage, cvOutImage, RGB, RR, GG, BB
+    if (inImage == None):
+        return
+    outH = inH;    outW = inW
+    outImage = malloc(outH, outW)
+    for rgb in range(RGB):
+        for i in range(inH):
+            for k in range(inW):
+                outImage[rgb][i][k] = inImage[rgb][i][inW-1-k]
+    displayImage()
+
+def udm_image() :
+    global window, canvas, paper, inImage, outImage, inH, inW, outH, outW
+    global fileName, cvInImage, cvOutImage, RGB, RR, GG, BB
+    if (inImage == None):
+        return
+    outH = inH;    outW = inW
+    outImage = malloc(outH, outW)
+    for rgb in range(RGB):
+        for i in range(inH):
+            for k in range(inW):
+                outImage[rgb][i][k] = inImage[rgb][inH-1-i][k]
+    displayImage()
+
+def rot_image() :
+    global window, canvas, paper, inImage, outImage, inH, inW, outH, outW
+    global fileName, cvInImage, cvOutImage, RGB, RR, GG, BB
+    if (inImage == None):
+        return
+    outH = inH;    outW = inW
+    outImage = malloc(outH, outW)
+    value = askinteger("회전값", "회전 입력", minvalue=0, maxvalue=360)
+    pi = 3.141592
+    seta = pi * value / 180.0
+    centerY = inH / 2
+    centerX = inW / 2
+
+    for rgb in range(RGB):
+        for i in range(inH):
+            for k in range(inW):
+                rotate_h = int((i - centerY) * math.cos(seta) - (k - centerX) * math.sin(seta) + centerY)
+                rotate_w = int((i - centerY) * math.sin(seta) + (k - centerX) * math.cos(seta) + centerX)
+                if (0 <= rotate_w < outW) and (0 <= rotate_h < outH):
+                    outImage[rgb][i][k] = inImage[rgb][rotate_h][rotate_w]
+                else:
+                    outImage[rgb][i][k] = 0
+    displayImage()
+
+def sharpen_image() :
+    global window, canvas, paper, inImage, outImage, inH, inW, outH, outW
+    global fileName, cvInImage, cvOutImage, RGB, RR, GG, BB
+    if (inImage == None):
+        return
+    outH = inH;    outW = inW
+    outImage = malloc(outH, outW)
+    MSIZE = 3
+    mask = (( 0.0,-1.0, 0.0),
+            (-1.0, 5.0,-1.0),
+            ( 0.0,-1.0, 1.0))
+
+    # 임시 입출력 메모리 할당
+    tmpInput = malloc(inH+2, inW+2)
+    tmpOutput = malloc(outH, outW)
+    for rgb in range(RGB) :
+        for i in range(inH + 2) :
+            for k in range (inW + 2) :
+                tmpInput[rgb][i][k] = 127
+    for rgb in range(RGB) :
+        for i in range(inH) :
+            for k in range (inW) :
+                tmpInput[rgb][i + 1][k + 1] = inImage[rgb][i][k]
+    S = 0.0
+    for rgb in range(RGB) :
+        for i in range(inH) :
+            for k in range (inW) :
+                for m in range(MSIZE) :
+                    for n in range(MSIZE) :
+                        S += tmpInput[rgb][i + m][k + n] * mask[m][n]
+                tmpOutput[rgb][i][k] = S
+                S = 0.0
+    for rgb in range(RGB):
+        for i in range(outH):
+            for k in range(outW):
+                d = tmpOutput[rgb][i][k]
+                if (d > 255) :
+                    d = 255
+                elif (d < 0.0) :
+                    d = 0
+                outImage[rgb][i][k] = int(d)
+    displayImage()
+
+## 전역 변수부
+window, canvas, paper = None, None, None # 벽, 게시판, 종이
+inImage, outImage = None, None  # 3차원 배열
+inH, inW, outH, outW = [0] * 4
+fileName = None
+inCvImage, outCvImage = None, None  # openCV 용
+RGB, RR, GG ,BB = 3, 0, 1, 2 # 상수
+
+## 메인 코드부
+window = Tk(); window.title("영상처리(파이썬) Beta1"); window.geometry('500x500')
+window.resizable(width=False, height=False)
+status = Label(window, text="이미지정보:", bd=1, relief=SUNKEN, anchor=W)
+status.pack(side=BOTTOM, fill=X)
+
+mainMenu = Menu(window) # 메인메뉴
+window.config(menu=mainMenu)
+fileMenu = Menu(mainMenu)
+mainMenu.add_cascade(label='파일', menu=fileMenu)
+fileMenu.add_command(label='열기', command=openImage)
+fileMenu.add_command(label='저장', command=saveImage)
+fileMenu.add_separator()
+fileMenu.add_command(label='종료', command=None)
+
+photoMenu = Menu(mainMenu)
+mainMenu.add_cascade(label='화소점 처리', menu=photoMenu)
+photoMenu.add_command(label='동일 이미지', command=equal_image)
+photoMenu.add_command(label='밝게 하기', command=add_image)
+photoMenu.add_command(label='그레이스케일', command=grayscale_image)
+photoMenu.add_command(label='반전영상(마우스)', command=reverse_image)
+photoMenu.add_command(label='반전임의', command=nega_image)
+photoMenu.add_command(label='감마변환', command=gm_image)
+photoMenu.add_command(label='솔라라이징', command=sol_image)
+photoMenu.add_command(label='파라볼라', command=pb_image)
+
+photoMenu1 = Menu(mainMenu)
+mainMenu.add_cascade(label='기하학 처리', menu=photoMenu1)
+photoMenu1.add_command(label='좌우반전', command=lrm_image)
+photoMenu1.add_command(label='상하반전', command=udm_image)
+photoMenu1.add_command(label='회전', command=rot_image)
+photoMenu2 = Menu(mainMenu)
+mainMenu.add_cascade(label='화소영역 처리', menu=photoMenu2)
+photoMenu2.add_command(label='샤프닝', command=sharpen_image)
+window.mainloop()
