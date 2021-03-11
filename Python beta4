@@ -1,4 +1,4 @@
-from tkinter import *  # GUI 필수
+from tkinter import *  # GUI 필수 
 from tkinter import messagebox
 from tkinter.filedialog import *
 from tkinter.simpledialog import *
