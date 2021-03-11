@@ -419,7 +419,7 @@ def rot_image() :
                     outImage[rgb][i][k] = 0
     displayImage()
 
-def sharpen_image() :
+def sharpen() :
     global window, canvas, paper, inImage, outImage, inH, inW, outH, outW
     global fileName, cvInImage, cvOutImage, RGB, RR, GG, BB
     if (inImage == None):
@@ -462,6 +462,166 @@ def sharpen_image() :
                 outImage[rgb][i][k] = int(d)
     displayImage()
 
+def blur() :
+    global window, canvas, paper, inImage, outImage, inH, inW, outH, outW
+    global fileName, cvInImage, cvOutImage, RGB, RR, GG, BB
+    if (inImage == None):
+        return
+    outH = inH;    outW = inW
+    outImage = malloc(outH, outW)
+    MSIZE = 3
+    mask = (( 1/9, 1/9, 1/9),
+            ( 1/9, 1/9, 1/9),
+            ( 1/9, 1/9, 1/9))
+
+    # 임시 입출력 메모리 할당
+    tmpInput = malloc(inH+2, inW+2)
+    tmpOutput = malloc(outH, outW)
+    for rgb in range(RGB) :
+        for i in range(inH + 2) :
+            for k in range (inW + 2) :
+                tmpInput[rgb][i][k] = 127
+    for rgb in range(RGB) :
+        for i in range(inH) :
+            for k in range (inW) :
+                tmpInput[rgb][i + 1][k + 1] = inImage[rgb][i][k]
+    S = 0.0
+    for rgb in range(RGB) :
+        for i in range(inH) :
+            for k in range (inW) :
+                for m in range(MSIZE) :
+                    for n in range(MSIZE) :
+                        S += tmpInput[rgb][i + m][k + n] * mask[m][n]
+                tmpOutput[rgb][i][k] = S
+                S = 0.0
+    for rgb in range(RGB):
+        for i in range(outH):
+            for k in range(outW):
+                d = tmpOutput[rgb][i][k]
+                if (d > 255) :
+                    d = 255
+                elif (d < 0.0) :
+                    d = 0
+                outImage[rgb][i][k] = int(d)
+    displayImage()
+
+def edge() :
+    global window, canvas, paper, inImage, outImage, inH, inW, outH, outW
+    global fileName, cvInImage, cvOutImage, RGB, RR, GG, BB
+    if (inImage == None):
+        return
+    outH = inH;    outW = inW
+    outImage = malloc(outH, outW)
+    MSIZE = 3
+    mask = ((  0, 0, 0),
+            ( -1, 1, 0),
+            (  0, 0, 0))
+
+    # 임시 입출력 메모리 할당
+    tmpInput = malloc(inH+2, inW+2)
+    tmpOutput = malloc(outH, outW)
+    for rgb in range(RGB) :
+        for i in range(inH + 2) :
+            for k in range (inW + 2) :
+                tmpInput[rgb][i][k] = 127
+    for rgb in range(RGB) :
+        for i in range(inH) :
+            for k in range (inW) :
+                tmpInput[rgb][i + 1][k + 1] = inImage[rgb][i][k]
+    S = 0.0
+    for rgb in range(RGB) :
+        for i in range(inH) :
+            for k in range (inW) :
+                for m in range(MSIZE) :
+                    for n in range(MSIZE) :
+                        S += tmpInput[rgb][i + m][k + n] * mask[m][n]
+                tmpOutput[rgb][i][k] = S
+                S = 0.0
+    for rgb in range(RGB):
+        for i in range(outH):
+            for k in range(outW):
+                d = tmpOutput[rgb][i][k]
+                if (d > 255) :
+                    d = 255
+                elif (d < 0.0) :
+                    d = 0
+                outImage[rgb][i][k] = int(d)
+    displayImage()
+
+def rafflesian() :
+    global window, canvas, paper, inImage, outImage, inH, inW, outH, outW
+    global fileName, cvInImage, cvOutImage, RGB, RR, GG, BB
+    if (inImage == None):
+        return
+    outH = inH;    outW = inW
+    outImage = malloc(outH, outW)
+    MSIZE = 3
+    mask = (( 1, 1, 1),
+            ( 1,-8, 1),
+            ( 1, 1, 1))
+
+    # 임시 입출력 메모리 할당
+    tmpInput = malloc(inH+2, inW+2)
+    tmpOutput = malloc(outH, outW)
+    for rgb in range(RGB) :
+        for i in range(inH + 2) :
+            for k in range (inW + 2) :
+                tmpInput[rgb][i][k] = 127
+    for rgb in range(RGB) :
+        for i in range(inH) :
+            for k in range (inW) :
+                tmpInput[rgb][i + 1][k + 1] = inImage[rgb][i][k]
+    S = 0.0
+    for rgb in range(RGB) :
+        for i in range(inH) :
+            for k in range (inW) :
+                for m in range(MSIZE) :
+                    for n in range(MSIZE) :
+                        S += tmpInput[rgb][i + m][k + n] * mask[m][n]
+                tmpOutput[rgb][i][k] = S
+                S = 0.0
+    for rgb in range(RGB):
+        for i in range(outH):
+            for k in range(outW):
+                d = tmpOutput[rgb][i][k]
+                if (d > 255) :
+                    d = 255
+                elif (d < 0.0) :
+                    d = 0
+                outImage[rgb][i][k] = int(d)
+    displayImage()
+
+def zoom_in() :
+    global window, canvas, paper, inImage, outImage, inH, inW, outH, outW
+    global fileName, cvInImage, cvOutImage, RGB, RR, GG, BB
+    if (inImage == None):
+        return
+    value = askinteger("확대값", "값 입력", minvalue=1, maxvalue=16)
+    outH = int(inH*value);    outW = int(inW*value)
+    outImage = malloc(outH, outW)
+    for rgb in range(RGB):
+        for i in range(inH):
+            for k in range(inW):
+                outImage[rgb][i][k] = inImage[rgb][i//value][k//value]
+    displayImage()
+
+
+def zoom_out() :
+    global window, canvas, paper, inImage, outImage, inH, inW, outH, outW
+    global fileName, cvInImage, cvOutImage, RGB, RR, GG, BB
+    if (inImage == None):
+        return
+    value = askinteger("축소값", "값 입력", minvalue=1, maxvalue=16)
+    outH = inH // value;    outW = inW // value
+    outImage = malloc(outH, outW)
+    for rgb in range(RGB):
+        for i in range(inH):
+            for k in range(inW):
+                outImage[rgb][i//value][k//value] = inImage[rgb][i][k]
+    displayImage()
+
+
+
 ## 전역 변수부
 window, canvas, paper = None, None, None # 벽, 게시판, 종이
 inImage, outImage = None, None  # 3차원 배열
@@ -501,7 +661,12 @@ mainMenu.add_cascade(label='기하학 처리', menu=photoMenu1)
 photoMenu1.add_command(label='좌우반전', command=lrm_image)
 photoMenu1.add_command(label='상하반전', command=udm_image)
 photoMenu1.add_command(label='회전', command=rot_image)
+photoMenu1.add_command(label='줌 인', command=zoom_in)
+photoMenu1.add_command(label='줌 아웃', command=zoom_out)
 photoMenu2 = Menu(mainMenu)
 mainMenu.add_cascade(label='화소영역 처리', menu=photoMenu2)
-photoMenu2.add_command(label='샤프닝', command=sharpen_image)
+photoMenu2.add_command(label='샤프닝', command=sharpen)
+photoMenu2.add_command(label='블러', command=blur)
+photoMenu2.add_command(label='엣지', command=edge)
+photoMenu2.add_command(label='라플레시안', command=rafflesian)
 window.mainloop()
