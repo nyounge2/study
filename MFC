@@ -67,3 +67,700 @@ public:
 	void OnPbImage();
 	void OnEdgeImage();
 };
+
+// Doc.cpp /////////////////////////////////////////////////
+
+
+// ImageDoc.cpp: CImageDoc 클래스의 구현
+//
+
+#include "pch.h"
+#include "framework.h"
+#include <math.h>
+
+// SHARED_HANDLERS는 미리 보기, 축소판 그림 및 검색 필터 처리기를 구현하는 ATL 프로젝트에서 정의할 수 있으며
+// 해당 프로젝트와 문서 코드를 공유하도록 해 줍니다.
+#ifndef SHARED_HANDLERS
+#include "Image.h"
+#endif
+
+#include "ImageDoc.h"
+
+#include <propkey.h>
+
+#ifdef _DEBUG
+#define new DEBUG_NEW
+#endif
+
+// CImageDoc
+
+IMPLEMENT_DYNCREATE(CImageDoc, CDocument)
+
+BEGIN_MESSAGE_MAP(CImageDoc, CDocument)
+END_MESSAGE_MAP()
+
+
+// CImageDoc 생성/소멸
+
+CImageDoc::CImageDoc() noexcept
+{
+	// TODO: 여기에 일회성 생성 코드를 추가합니다.
+
+}
+
+CImageDoc::~CImageDoc()
+{
+}
+
+BOOL CImageDoc::OnNewDocument()
+{
+	if (!CDocument::OnNewDocument())
+		return FALSE;
+
+	// TODO: 여기에 재초기화 코드를 추가합니다.
+	// SDI 문서는 이 문서를 다시 사용합니다.
+
+	return TRUE;
+}
+
+
+
+
+// CImageDoc serialization
+
+void CImageDoc::Serialize(CArchive& ar)
+{
+	if (ar.IsStoring())
+	{
+		// TODO: 여기에 저장 코드를 추가합니다.
+	}
+	else
+	{
+		// TODO: 여기에 로딩 코드를 추가합니다.
+	}
+}
+
+#ifdef SHARED_HANDLERS
+
+// 축소판 그림을 지원합니다.
+void CImageDoc::OnDrawThumbnail(CDC& dc, LPRECT lprcBounds)
+{
+	// 문서의 데이터를 그리려면 이 코드를 수정하십시오.
+	dc.FillSolidRect(lprcBounds, RGB(255, 255, 255));
+
+	CString strText = _T("TODO: implement thumbnail drawing here");
+	LOGFONT lf;
+
+	CFont* pDefaultGUIFont = CFont::FromHandle((HFONT) GetStockObject(DEFAULT_GUI_FONT));
+	pDefaultGUIFont->GetLogFont(&lf);
+	lf.lfHeight = 36;
+
+	CFont fontDraw;
+	fontDraw.CreateFontIndirect(&lf);
+
+	CFont* pOldFont = dc.SelectObject(&fontDraw);
+	dc.DrawText(strText, lprcBounds, DT_CENTER | DT_WORDBREAK);
+	dc.SelectObject(pOldFont);
+}
+
+// 검색 처리기를 지원합니다.
+void CImageDoc::InitializeSearchContent()
+{
+	CString strSearchContent;
+	// 문서의 데이터에서 검색 콘텐츠를 설정합니다.
+	// 콘텐츠 부분은 ";"로 구분되어야 합니다.
+
+	// 예: strSearchContent = _T("point;rectangle;circle;ole object;");
+	SetSearchContent(strSearchContent);
+}
+
+void CImageDoc::SetSearchContent(const CString& value)
+{
+	if (value.IsEmpty())
+	{
+		RemoveChunk(PKEY_Search_Contents.fmtid, PKEY_Search_Contents.pid);
+	}
+	else
+	{
+		CMFCFilterChunkValueImpl *pChunk = nullptr;
+		ATLTRY(pChunk = new CMFCFilterChunkValueImpl);
+		if (pChunk != nullptr)
+		{
+			pChunk->SetTextValue(PKEY_Search_Contents, value, CHUNK_TEXT);
+			SetChunkValue(pChunk);
+		}
+	}
+}
+
+#endif // SHARED_HANDLERS
+
+// CImageDoc 진단
+
+#ifdef _DEBUG
+void CImageDoc::AssertValid() const
+{
+	CDocument::AssertValid();
+}
+
+void CImageDoc::Dump(CDumpContext& dc) const
+{
+	CDocument::Dump(dc);
+}
+#endif //_DEBUG
+
+
+// CImageDoc 명령
+
+unsigned char** malloc2D(int h, int w) {
+	unsigned char** p;
+	p = (unsigned char**)malloc(h * sizeof(unsigned char*));
+	for (int i = 0; i < h; i++)
+		p[i] = (unsigned char*)malloc(w * sizeof(unsigned char));
+	return p;
+}
+void freeInputImage(unsigned char** inImage, int inH) {
+	if (inImage == NULL)
+		return;
+	for (int i = 0; i < inH; i++)
+		free(inImage[i]);
+	free(inImage);
+	inImage = NULL;
+}
+void freeOutputImage(unsigned char** outImage, int outH) {
+	if (outImage == NULL)
+		return;
+	for (int i = 0; i < outH; i++)
+		free(outImage[i]);
+	free(outImage);
+	outImage = NULL;
+}
+
+BOOL CImageDoc::OnOpenDocument(LPCTSTR lpszPathName)
+{
+	if (!CDocument::OnOpenDocument(lpszPathName))
+		return FALSE; 
+
+	freeInputImage(inImage, inH);
+
+	// TODO:  여기에 특수화된 작성 코드를 추가합니다.
+	CFile File;
+	File.Open(lpszPathName, CFile::modeRead | CFile::typeBinary);
+
+	// 중요! 입력 영상의 크기 확인.
+	long fsize = (long)File.GetLength(); // 파일 크기 : 65535
+	inH = inW = (int)sqrt(fsize);  // 256, 256
+	// 입력 메모리 할당
+	inImage = malloc2D(inH, inW);
+	// 파일 --> 메모리
+	for (int i = 0; i < inH; i++)
+		File.Read(inImage[i], inW);
+
+	File.Close();
+	return TRUE;
+}
+
+
+void CImageDoc::OnEqualImage()
+{
+	if (inImage == NULL)
+		return;
+	freeOutputImage(outImage, outH);
+	outH = inH;  outW = inW;
+	outImage = malloc2D(outH, outW);
+	for (int i = 0; i < inH; i++)
+		for (int k = 0; k < inW; k++) {
+			outImage[i][k] = inImage[i][k];
+		}
+}
+
+
+void CImageDoc::OnReverseImage()
+{
+	if (inImage == NULL)
+		return;
+	freeOutputImage(outImage, outH);
+	outH = inH;  outW = inW;
+	outImage = malloc2D(outH, outW);
+	for (int i = 0; i < inH; i++)
+		for (int k = 0; k < inW; k++) {
+			outImage[i][k] = 255 - inImage[i][k];
+		}
+}
+
+
+void CImageDoc::OnCloseDocument()
+{
+	freeInputImage(inImage, inH);
+	freeOutputImage(outImage, outH);
+	CDocument::OnCloseDocument();
+}
+
+
+void CImageDoc::OnBwImage()
+{
+	if (inImage == NULL)
+		return;
+	freeOutputImage(outImage, outH);
+	outH = inH;  outW = inW;
+	outImage = malloc2D(outH, outW);
+	for (int i = 0; i < inH; i++)
+		for (int k = 0; k < inW; k++) {
+			if (inImage[i][k] < 127)
+				outImage[i][k] = 0;
+			else
+				outImage[i][k] = 255;
+		}
+}
+void CImageDoc::OnBrImage()
+{
+	// TODO: 여기에 구현 코드 추가.
+	if (inImage == NULL)
+		return;
+	freeOutputImage(outImage, outH);
+	outH = inH;  outW = inW;
+	outImage = malloc2D(outH, outW);
+	for (int i = 0; i < inH; i++)
+		for (int k = 0; k < inW; k++) {
+			if (inImage[i][k] + 50 > 255)
+				outImage[i][k] = 255;
+			else
+				outImage[i][k] = inImage[i][k] + 50;
+		}
+}
+void CImageDoc::OnDkImage()
+{
+	if (inImage == NULL)
+		return;
+	freeOutputImage(outImage, outH);
+	outH = inH;  outW = inW;
+	outImage = malloc2D(outH, outW);
+	for (int i = 0; i < inH; i++)
+		for (int k = 0; k < inW; k++) {
+			if (inImage[i][k] - 50 < 0)
+				outImage[i][k] = 0;
+			else
+				outImage[i][k] = inImage[i][k] - 50;
+		}
+}
+
+
+void CImageDoc::OnZoomIn()
+{
+	if (inImage == NULL)
+		return;
+	freeOutputImage(outImage, outH);
+	outH = (int)(inH * 2); outW = (int)(inW * 2);
+	outImage = malloc2D(outH, outW);
+	for (int i = 0; i < outH; i++)
+		for (int k = 0; k < outW; k++) {
+				outImage[i][k] = inImage[i/2][k/2];
+		}
+}
+
+
+void CImageDoc::OnZoomOut()
+{
+	if (inImage == NULL)
+		return;
+	freeOutputImage(outImage, outH);
+	outH = (inH / 2); outW = (inW / 2);
+	outImage = malloc2D(outH, outW);
+	for (int i = 0; i < inH; i++)
+		for (int k = 0; k < inW; k++) {
+			outImage[i/2][k/2] = inImage[i][k];
+		}
+}
+
+
+void CImageDoc::OnGmImage()
+{
+	if (inImage == NULL)
+		return;
+	freeOutputImage(outImage, outH);
+	outH = inH;  outW = inW;
+	outImage = malloc2D(outH, outW);
+	for (int i = 0; i < inH; i++)
+		for (int k = 0; k < inW; k++) {
+			outImage[i][k] = (byte)(255.0 * pow(((double)inImage[i][k] / 255.0), 2));
+			if (outImage[i][k] > 255)
+			{
+				outImage[i][k] = 255;
+			}
+		}
+}
+
+
+void CImageDoc::OnSolImage()
+{
+	if (inImage == NULL)
+		return;
+	freeOutputImage(outImage, outH);
+	outH = inH;  outW = inW;
+	outImage = malloc2D(outH, outW);
+	for (int i = 0; i < inH; i++)
+		for (int k = 0; k < inW; k++) {
+			outImage[i][k] = (byte)(255 - (255 * pow(((double)inImage[i][k] / 128) - 1, 2)));
+		}
+}
+
+
+void CImageDoc::OnPbImage()
+{
+	if (inImage == NULL)
+		return;
+	freeOutputImage(outImage, outH);
+	outH = inH;  outW = inW;
+	outImage = malloc2D(outH, outW);
+	for (int i = 0; i < inH; i++)
+		for (int k = 0; k < inW; k++) {
+			outImage[i][k] = (byte)(255 * pow(((double)inImage[i][k] / 128) - 1, 2));
+		}
+}
+
+
+void CImageDoc::OnEdgeImage()
+{
+	if (inImage == NULL)
+		return;
+	freeOutputImage(outImage, outH);
+	outH = inH;  outW = inW;
+	const int MSIZE = 3;
+	outImage = malloc2D(outH, outW);
+	double mask[3][3] = { { -1.0, 0.0, 0.0 },
+							   { 0.0, 0.0, 0.0 },
+							   { 0.0, 0.0, 1.0 } };
+	int sum = 0;
+
+	for (int i = 0; i < inH - 2; i++)
+
+	{
+
+		for (int j = 0; j < inW - 2; j++)
+
+		{
+
+			/* 기존 image와 3*3 filter에 대해서 convolution 곱 수행 */
+
+			for (int k = 0; k < 3; k++)
+
+			{
+
+				for (int l = 0; l < 3; l++)
+
+				{
+
+					/* 결과를 sum에 저장 */
+
+					sum += inImage[i + k][j + l] * mask[k][l];
+
+				}
+
+			}
+
+			if (sum > 255)
+
+				outImage[i][j] = 255;
+
+			else if (sum < 0)
+
+				outImage[i][j] = 0;
+
+			else
+
+				outImage[i][j] = sum;
+
+			/* 다음 계산을 위해 sum 초기화 */
+
+			sum = 0;
+
+		}
+
+	}
+}
+
+
+///////////////////////////on draw/////////////////////
+
+
+// ImageView.cpp: CImageView 클래스의 구현
+//
+
+#include "pch.h"
+#include "framework.h"
+// SHARED_HANDLERS는 미리 보기, 축소판 그림 및 검색 필터 처리기를 구현하는 ATL 프로젝트에서 정의할 수 있으며
+// 해당 프로젝트와 문서 코드를 공유하도록 해 줍니다.
+#ifndef SHARED_HANDLERS
+#include "Image.h"
+#endif
+
+#include "ImageDoc.h"
+#include "ImageView.h"
+
+#ifdef _DEBUG
+#define new DEBUG_NEW
+#endif
+
+
+// CImageView
+
+IMPLEMENT_DYNCREATE(CImageView, CView)
+
+BEGIN_MESSAGE_MAP(CImageView, CView)
+	// 표준 인쇄 명령입니다.
+	ON_COMMAND(ID_FILE_PRINT, &CView::OnFilePrint)
+	ON_COMMAND(ID_FILE_PRINT_DIRECT, &CView::OnFilePrint)
+	ON_COMMAND(ID_FILE_PRINT_PREVIEW, &CView::OnFilePrintPreview)
+	ON_COMMAND(IDM_EQUAL_IMAGE, &CImageView::OnEqualImage)
+	ON_COMMAND(IDM_REVERSE_IMAGE, &CImageView::OnReverseImage)
+	ON_COMMAND(IDM_BW_IMAGE, &CImageView::OnBwImage)
+	ON_COMMAND(IDM_BR_IMAGE, &CImageView::OnBrImage)
+	ON_COMMAND(IDM_DK_IMAGE, &CImageView::OnDkImage)
+	ON_COMMAND(IDM_ZOOM_IN, &CImageView::OnZoomIn)
+	ON_COMMAND(IDM_ZOOM_OUT, &CImageView::OnZoomOut)
+	ON_COMMAND(IDM_GM_IMAGE, &CImageView::OnGmImage)
+	ON_COMMAND(IDM_SOL_IMAGE, &CImageView::OnSolImage)
+	ON_COMMAND(IDM_PB_IMAGE, &CImageView::OnPbImage)
+	ON_COMMAND(IDM_EDGE_IMAGE, &CImageView::OnEdgeImage)
+END_MESSAGE_MAP()
+
+// CImageView 생성/소멸
+
+CImageView::CImageView() noexcept
+{
+	// TODO: 여기에 생성 코드를 추가합니다.
+
+}
+
+CImageView::~CImageView()
+{
+}
+
+BOOL CImageView::PreCreateWindow(CREATESTRUCT& cs)
+{
+	// TODO: CREATESTRUCT cs를 수정하여 여기에서
+	//  Window 클래스 또는 스타일을 수정합니다.
+
+	return CView::PreCreateWindow(cs);
+}
+
+// CImageView 그리기
+
+void CImageView::OnDraw(CDC* pDC)
+{
+	CImageDoc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc)
+		return;
+
+	// TODO: 여기에 원시 데이터에 대한 그리기 코드를 추가합니다.
+	unsigned char px;
+	for (int i = 0; i < pDoc->inH; i++)
+		for (int k = 0; k < pDoc->inW; k++) {
+			px = pDoc->inImage[i][k];
+			pDC->SetPixel(k + 5, i + 5, RGB(px, px, px));
+		}
+
+	for (int i = 0; i < pDoc->outH; i++)
+		for (int k = 0; k < pDoc->outW; k++) {
+			px = pDoc->outImage[i][k];
+			pDC->SetPixel(k + 5 + pDoc->inW + 5, i + 5, RGB(px, px, px));
+		}
+}
+
+
+// CImageView 인쇄
+
+BOOL CImageView::OnPreparePrinting(CPrintInfo* pInfo)
+{
+	// 기본적인 준비
+	return DoPreparePrinting(pInfo);
+}
+
+void CImageView::OnBeginPrinting(CDC* /*pDC*/, CPrintInfo* /*pInfo*/)
+{
+	// TODO: 인쇄하기 전에 추가 초기화 작업을 추가합니다.
+}
+
+void CImageView::OnEndPrinting(CDC* /*pDC*/, CPrintInfo* /*pInfo*/)
+{
+	// TODO: 인쇄 후 정리 작업을 추가합니다.
+}
+
+
+// CImageView 진단
+
+#ifdef _DEBUG
+void CImageView::AssertValid() const
+{
+	CView::AssertValid();
+}
+
+void CImageView::Dump(CDumpContext& dc) const
+{
+	CView::Dump(dc);
+}
+
+CImageDoc* CImageView::GetDocument() const // 디버그되지 않은 버전은 인라인으로 지정됩니다.
+{
+	ASSERT(m_pDocument->IsKindOf(RUNTIME_CLASS(CImageDoc)));
+	return (CImageDoc*)m_pDocument;
+}
+#endif //_DEBUG
+
+
+// CImageView 메시지 처리기
+
+
+void CImageView::OnEqualImage()
+{
+	// TODO: 여기에 명령 처리기 코드를 추가합니다.
+	CImageDoc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc)
+		return;
+
+	pDoc->OnEqualImage();
+
+	Invalidate(TRUE); // 화면 새로 고침.
+}
+
+
+void CImageView::OnReverseImage()
+{
+	// TODO: 여기에 명령 처리기 코드를 추가합니다.
+	CImageDoc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc)
+		return;
+
+	pDoc->OnReverseImage();
+
+	Invalidate(TRUE); // 화면 새로 고침.
+}
+
+
+void CImageView::OnBwImage()
+{
+	// TODO: 여기에 명령 처리기 코드를 추가합니다.
+	CImageDoc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc)
+		return;
+
+	pDoc->OnBwImage();
+
+	Invalidate(TRUE); // 화면 새로 고침
+}
+
+
+void CImageView::OnBrImage()
+{
+	// TODO: 여기에 명령 처리기 코드를 추가합니다.
+	CImageDoc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc)
+		return;
+
+	pDoc->OnBrImage();
+
+	Invalidate(TRUE); // 화면 새로 고침
+}
+
+
+void CImageView::OnDkImage()
+{
+	// TODO: 여기에 명령 처리기 코드를 추가합니다.
+	CImageDoc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc)
+		return;
+
+	pDoc->OnDkImage();
+
+	Invalidate(TRUE); // 화면 새로 고침
+}
+
+
+void CImageView::OnZoomIn()
+{
+	// TODO: 여기에 명령 처리기 코드를 추가합니다.
+	CImageDoc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc)
+		return;
+
+	pDoc->OnZoomIn();
+
+	Invalidate(TRUE); // 화면 새로 고침
+}
+
+
+void CImageView::OnZoomOut()
+{
+	// TODO: 여기에 명령 처리기 코드를 추가합니다.
+	CImageDoc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc)
+		return;
+
+	pDoc->OnZoomOut();
+
+	Invalidate(TRUE); // 화면 새로 고침
+}
+
+
+void CImageView::OnGmImage()
+{
+	// TODO: 여기에 명령 처리기 코드를 추가합니다.
+	CImageDoc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc)
+		return;
+
+	pDoc->OnGmImage();
+
+	Invalidate(TRUE); // 화면 새로 고침
+}
+
+
+void CImageView::OnSolImage()
+{
+	// TODO: 여기에 명령 처리기 코드를 추가합니다.
+	CImageDoc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc)
+		return;
+
+	pDoc->OnSolImage();
+
+	Invalidate(TRUE); // 화면 새로 고침
+}
+
+
+void CImageView::OnPbImage()
+{
+	// TODO: 여기에 명령 처리기 코드를 추가합니다.
+	CImageDoc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc)
+		return;
+
+	pDoc->OnPbImage();
+
+	Invalidate(TRUE); // 화면 새로 고침
+}
+
+
+void CImageView::OnEdgeImage()
+{
+	// TODO: 여기에 명령 처리기 코드를 추가합니다.
+	CImageDoc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc)
+		return;
+
+	pDoc->OnEdgeImage();
+
+	Invalidate(TRUE); // 화면 새로 고침
+}
+
