@@ -531,7 +531,7 @@ namespace Day015_1_칼라영상처리__Beta_1_
                 for (int i = 0; i < inH; i++)
                     for (int k = 0; k < inW; k++)
                 {
-                    outImage[rgb / value, i / value, k / value] = inImage[rgb, i, k];
+                    outImage[rgb , i / value, k / value] = inImage[rgb, i, k];
                 }
             displayImage();
         }
@@ -547,7 +547,7 @@ namespace Day015_1_칼라영상처리__Beta_1_
                 for (int i = 0; i < inH; i++)
                    for (int k = 0; k < inW; k++)
                 {
-                    outImage[rgb, i, k] = inImage[rgb / value, i / value, k / value];
+                    outImage[rgb, i, k] = inImage[rgb , i / value, k / value];
                 }
             displayImage();
         }
